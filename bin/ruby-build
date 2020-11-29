@@ -1095,14 +1095,25 @@ build_package_mac_openssl() {
 
   # Hint OpenSSL that we prefer a 64-bit build.
   export KERNEL_BITS="64"
-  OPENSSL_CONFIGURE="${OPENSSL_CONFIGURE:-./config}"
+  # OPENSSL_CONFIGURE="${OPENSSL_CONFIGURE:-./config}"
+  OPENSSL_CONFIGURE="${OPENSSL_CONFIGURE:-./Configure}"
 
   local nokerberos
   [[ "$1" != openssl-1.0.* ]] || nokerberos=1
 
-  # Compile a shared lib with zlib dynamically linked.
-  package_option openssl configure --openssldir="$OPENSSLDIR" zlib-dynamic no-ssl3 shared ${nokerberos:+no-ssl2 no-krb5}
+  # Apply https://github.com/openssl/openssl/pull/12369/commits/4907cf01f63cc966a40d67eb2e030c4d8eb1d528
+  curl https://github.com/openssl/openssl/commit/4907cf01f63cc966a40d67eb2e030c4d8eb1d528.diff | git apply
 
+  if [[ `sysctl machdep.cpu.brand_string` =~ 'Apple processor' ]] ; then
+      ARCH=darwin64-arm64-cc
+  else
+      ARCH=darwin64-x86_64-cc
+  fi
+
+  # Compile a shared lib with zlib dynamically linked.
+  # package_option openssl configure --openssldir="$OPENSSLDIR" zlib-dynamic no-ssl3 shared ${nokerberos:+no-ssl2 no-krb5}
+  package_option openssl configure --openssldir="$OPENSSLDIR" "$ARCH" zlib-dynamic no-ssl3 shared ${nokerberos:+no-ssl2 no-krb5}
+ 
   # Default MAKE_OPTS are -j 2 which can confuse the build. Thankfully, make
   # gives precedence to the last -j option, so we can override that.
   package_option openssl make -j 1
